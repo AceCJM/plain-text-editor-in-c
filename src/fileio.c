@@ -24,7 +24,7 @@ char* loadFile(const char* filePath) {
         return NULL;
     }
 
-    char* b_file = (char*)malloc(fileSize); // Creates buffer for file contents of fileSize + a null terminator
+    char* b_file = (char*)malloc(fileSize + 1); // Creates buffer for file contents of fileSize + a null terminator
 
     // Check if buffer was allocated
     if (!b_file) {
@@ -42,6 +42,8 @@ char* loadFile(const char* filePath) {
         fclose(p_file);
         return NULL;
     }
+
+    b_file[fileSize] = '\0'; // Null terminate the buffer
 
     fclose(p_file); // Close file if all was successful
 
@@ -61,18 +63,18 @@ int saveFile(const char* filePath, char* p_fileData) {
     
     // null terminator to end of file
     size_t len = strlen(str);
-    char* new_str = (char*)malloc(len+1);
+    char* new_str = (char*)malloc(len + 1);
     if (!new_str) {
         fclose(p_file);
         perror("Error saving file");
         return -1;
     }
     strcpy(new_str, str);
-    new_str[len] = *"\0";
-
+    new_str[len] = '\0'; // Remove the extra newline addition
+    if (new_str[len + 1] != '\n') new_str[len + 1] = '\n';
     // Write bytes to file
-    size_t bytes_written = fwrite(new_str, sizeof(char), len+2, p_file); // get number of bytes written to the file
+    size_t bytes_written = fwrite(new_str, sizeof(char), len+1, p_file); // get number of bytes written to the file
     fclose(p_file);
-    printf("Number of bytes written: %ld\n", bytes_written);
+    printf("\nNumber of bytes written: %ld\n", bytes_written);
     return 0;
 }

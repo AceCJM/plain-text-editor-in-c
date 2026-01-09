@@ -1,23 +1,21 @@
 #include <termios.h>
 #include <unistd.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <unistd.h>
 
 #include "fileio.h"
+#include "editor.h"
 
 // Macros
 #define gotoxy(l, c) printf("\033[%d;%dH", (l), (c)) // move terminal cursor
 #define clear_screen() printf("\033[2J\033[H")  // clear screen
 
-// Forward declarations
-void getTerminalSize(int* rows, int* cols);
-
 // Cursor position variables
-int cx = 0;  // cursor column (x position)
-int cy = 0;  // cursor row (y position)
+int cx_val = 0;  // cursor column (x position)
+int cy_val = 0;  // cursor row (y position)
+int* cx = &cx_val;
+int* cy = &cy_val;
 
 // Editor message flags
 int confirmExit = 0;
@@ -46,123 +44,6 @@ void enableRawMode() {
     tcsetattr(STDIN_FILENO, TCSANOW, &raw);
 }
 
-void printLineNumbers(int numLines) {
-    int i = 0;
-    while (i < numLines) {
-        printf("%c\n", i);
-        i++;
-    }
-}
-
-// Function to count lines in text
-int countLines(const char* text) {
-    if (!text || !*text) return 1;
-    int lines = 1;
-    for (const char* p = text; *p; p++) {
-        if (*p == '\n') lines++;
-    }
-    return lines;
-}
-
-// Function to get line length at specific row
-int getLineLength(const char* text, int row) {
-    if (!text) return 0;
-    
-    int currentRow = 0;
-    int lineStart = 0;
-    int i = 0;
-    
-    while (text[i] && currentRow <= row) {
-        if (text[i] == '\n' || text[i] == '\0') {
-            if (currentRow == row) {
-                return i - lineStart;
-            }
-            currentRow++;
-            lineStart = i + 1;
-        }
-        i++;
-    }
-    
-    // If we reach end and it's the target row
-    if (currentRow == row) {
-        return i - lineStart;
-    }
-    
-    return 0;
-}
-
-// Function to constrain cursor to text bounds
-void constrainCursor(const char* text) {
-    int totalLines = countLines(text);
-    
-    // Constrain row
-    if (cy >= totalLines) cy = totalLines - 1;
-    if (cy < 0) cy = 0;
-    
-    // Constrain column
-    int lineLen = getLineLength(text, cy);
-    if (cx >= lineLen) cx = lineLen > 0 ? lineLen : 0;
-    if (cx < 0) cx = 0;
-}
-
-// Function to print text with proper line endings for terminal display
-void printText(const char* text) {
-    if (!text) return;
-    for (const char* p = text; *p; p++) {
-        if (*p == '\n') {
-            printf("\r\n");  // Use \r\n for terminal display
-        } else {
-            putchar(*p);
-        }
-    }
-}
-
-// Function to print text from editor at the bottom of screen
-void printEditorMessage(const char* text) {
-    if (!text) return;
-    int rows, cols;
-    getTerminalSize(&rows, &cols);
-
-    // Move cursor to bottom row at column 1 and print message
-    printf("\x1b[%d;1H", rows);
-    printf("\x1b[K");
-    printf("%s", text);
-
-    // Move cursor back to text area
-    gotoxy(cy + 1, cx + 1);
-}
-
-// Function to get index in text from cursor position
-int getIndexFromCursor(const char* text, int row, int col) {
-    if (!text) return 0;
-    int currentRow = 0;
-    int index = 0;
-    while (text[index] && currentRow < row) {
-        if (text[index] == '\n') {
-            currentRow++;
-        }
-        index++;
-    }
-    index += col;
-    return index;
-}
-
-// Function to get terminal size
-void getTerminalSize(int* rows, int* cols) {
-    struct winsize ws;
-    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1) {
-        // Fallback values if ioctl fails
-        *rows = 24;
-        *cols = 80;
-        return;
-    }
-    *rows = ws.ws_row;
-    *cols = ws.ws_col;
-    // Ensure we have valid values
-    if (*rows <= 0) *rows = 24;
-    if (*cols <= 0) *cols = 80;
-}
-
 int running = 1;
 
 int main(int argc, char *argv[]) {
@@ -186,18 +67,18 @@ int main(int argc, char *argv[]) {
         printf("File contents:\n%.*s\n", (int)fileSize, p_fileData);
     }
 
-    // Initialize str with loaded data
-    char *str;
+    // Initialize b_textFileData with loaded data
+    char *b_textFileData;
     if (p_fileData) {
-        str = malloc(fileSize + 1);
-        if (str) {
-            memcpy(str, p_fileData, fileSize);
-            str[fileSize] = '\0';
+        b_textFileData = malloc(fileSize + 1);
+        if (b_textFileData) {
+            memcpy(b_textFileData, p_fileData, fileSize);
+            b_textFileData[fileSize] = '\0';
         }
         free(p_fileData);
     } else {
-        str = malloc(1);
-        str[0] = '\0';
+        b_textFileData = malloc(1);
+        b_textFileData[0] = '\0';
     }
 
     enableRawMode();
@@ -209,18 +90,17 @@ int main(int argc, char *argv[]) {
     while (running)
     {   
         clear_screen();
-        int numLines = countLines(str);
-        printLineNumbers(numLines);
+        int numLines = countLines(b_textFileData);
         gotoxy(0,0);
-        printText(str);
+        printText(b_textFileData);
         printf("\r\n");  // Ensure we end with proper line ending
         // Print editor message
         if (confirmExit > 0) printEditorMessage("Are you sure you want to exit?\n\rFile will not be saved\n");
         if (fileSaved == 1) printEditorMessage("File Saved");
         
         // Position cursor at text area (after line numbers)
-        constrainCursor(str);
-        gotoxy(cy + 1, cx + 1);  // +1 because terminal coordinates start at 1,1
+        constrainCursor(b_textFileData);
+        gotoxy(*cy + 1, *cx + 1);  // +1 because terminal coordinates start at 1,1
         
         // Read input
         ssize_t nread = read(STDIN_FILENO, &c, 1);
@@ -233,21 +113,21 @@ int main(int argc, char *argv[]) {
             if (seq[0] == '[') {
                 switch (seq[1]) {
                     case 'A':  // Up arrow
-                        cy--;
+                        (*cy)--;
                         break;
                     case 'B':  // Down arrow
-                        cy++;
+                        (*cy)++;
                         break;
                     case 'C':  // Right arrow
-                        cx++;
+                        (*cx)++;
                         break;
                     case 'D':  // Left arrow
-                        cx--;
+                        (*cx)--;
                         break;
                 }
             }
         } else if (c == 19) { // Ctrl+S Save 
-            saveFile(filePath, str);
+            saveFile(filePath, b_textFileData);
             fileSaved = 1;
         } else if (c == 24) {  // Ctrl+X Exit
             if (fileSaved == 1) {
@@ -259,50 +139,20 @@ int main(int argc, char *argv[]) {
                 running = 0;
             }
         } else if (c == '\r') {  // Enter key
-            int index = getIndexFromCursor(str, cy, cx);
-            size_t len = strlen(str);
-            char *temp = realloc(str, len + 2);  // +1 for \n, +1 for null terminator
-            if (temp) {
-                str = temp;
-                // Shift characters after cursor to make room for \n
-                memmove(&str[index + 1], &str[index], len - index + 1);
-                str[index] = '\n';
-                // Move cursor to start of new line
-                cy++;
-                cx = 0;
-            }
+            char temp[2] = {'\n', '\0'};
+            int index = getIndexFromCursor(b_textFileData, *cy, *cx);
+            alterCharBuffer(&b_textFileData, index, temp);
         } else if (c == 127) {  // Backspace
-            int index = getIndexFromCursor(str, cy, cx);
-            // Move cursor before editing str
-            if (cx > 0 && (cx - 1) > 0) {
-                cx--;
-            } else if (cy > 0) {
-                cy--;
-                cx = getLineLength(str, cy);
-            }
-            size_t len = strlen(str);
+            int index = getIndexFromCursor(b_textFileData, *cy, *cx);
+            size_t len = strlen(b_textFileData);
             if (index > 0) {
-                // Shift characters left to overwrite the character before cursor
-                memmove(&str[index - 1], &str[index], len - index + 1);
-                // Shrink memory since we removed a character
-                char *temp = realloc(str, len);  // len is now the new length after memmove
-                if (temp) {
-                    str = temp;
-                }
+                alterCharBuffer(&b_textFileData, index, "\b");
             }
         } else {
             if (confirmExit > 0) confirmExit = 0;
             if (fileSaved) fileSaved = 0;
-            int index = getIndexFromCursor(str, cy, cx);
-            size_t len = strlen(str);
-            char *temp = realloc(str, len + 2);  // +1 for new char, +1 for null terminator
-            if (temp) {
-                str = temp;
-                // Shift characters after cursor to make room for new character
-                memmove(&str[index + 1], &str[index], len - index + 1);
-                str[index] = c;
-                cx++;  // Move cursor right after insertion
-            }
+            int index = getIndexFromCursor(b_textFileData, *cy, *cx);
+            alterCharBuffer(&b_textFileData, index, &c);
         }
     }
     clear_screen();

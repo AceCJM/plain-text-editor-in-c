@@ -71,7 +71,7 @@ int save_file(char* filePath, char* p_fileData) {
     new_str[len] = *"\0";
 
     // Write bytes to file
-    size_t bytes_written = fwrite(new_str, sizeof(char), len+2, p_file); // get number of bytes written to the file
+    size_t bytes_written = fwrite(new_str, sizeof(char), len+1, p_file); // get number of bytes written to the file
     fclose(p_file);
     printf("Number of bytes written: %ld\n", bytes_written);
     return 0;

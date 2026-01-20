@@ -7,16 +7,20 @@
 #include <unistd.h>
 
 #include "fileio.h"
+#include "editor.h"
 
 // Macros
 #define gotoxy(l, c) printf("\033[%d;%dH", (l), (c)) // move terminal cursor
 #define clear_screen() printf("\033[2J\033[H")  // clear screen
 
+char str_val;
+char *str = &str_val;
+
 // Forward declarations
 void get_terminal_size(int* rows, int* cols);
 
-int cx = 0;  // cursor column (x position)
-int cy = 0;  // cursor row (y position)
+extern int *cx;
+extern int *cy;
 
 // Editor message flags
 int confirm_exit = 0;
@@ -95,13 +99,13 @@ void constrain_cursor(const char* text) {
     int total_lines = count_lines(text);
     
     // Constrain row
-    if (cy >= total_lines) cy = total_lines - 1;
-    if (cy < 0) cy = 0;
+    if (*cy >= total_lines) *cy = total_lines - 1;
+    if (*cy < 0) *cy = 0;
     
     // Constrain column
-    int line_len = get_line_length(text, cy);
-    if (cx >= line_len) cx = line_len > 0 ? line_len : 0;
-    if (cx < 0) cx = 0;
+    int line_len = get_line_length(text, *cy);
+    if (*cx >= line_len) *cx = line_len > 0 ? line_len : 0;
+    if (*cx < 0) *cx = 0;
 }
 
 // Function to print text with proper line endings for terminal display
@@ -128,7 +132,7 @@ void print_editor_message(const char* text) {
     printf("%s", text);
 
     // Move cursor back to text area
-    gotoxy(cy + 1, cx + 1);
+    gotoxy(*cy + 1, *cx + 1);
 }
 
 // Function to get index in text from cursor position
@@ -178,21 +182,20 @@ int main(int argc, char *argv[]) {
     char file_path[strlen(argv[1]) + 1];
     strcpy(file_path, argv[1]);
     long file_size;
-    char* p_file_data = load_file(file_path);
-    file_size = strlen(p_file_data);
-    if (p_file_data) {
+    char *b_text_file_data = load_file(file_path);
+    file_size = strlen(b_text_file_data);
+    if (b_text_file_data) {
         printf("File size %ld bytes\n", file_size);
-        printf("File contents:\n%.*s\n", (int)file_size, p_file_data);
+        printf("File contents:\n%.*s\n", (int)file_size, b_text_file_data);
     }
     // Initialize str with loaded data
-    char *str;
-    if (p_file_data) {
+    if (b_text_file_data) {
         str = malloc(file_size + 1);
         if (str) {
-            memcpy(str, p_file_data, file_size);
+            memcpy(str, b_text_file_data, file_size);
             str[file_size] = '\0';
         }
-        free(p_file_data);
+        free(b_text_file_data);
     } else {
         str = malloc(1);
         str[0] = '\0';
@@ -200,6 +203,7 @@ int main(int argc, char *argv[]) {
 
     char c;
     char seq[3];  // for escape sequences
+    char typedChar;
     
     enable_raw_mode();
     
@@ -218,7 +222,7 @@ int main(int argc, char *argv[]) {
         
         // Position cursor at text area (after line numbers)
         constrain_cursor(str);
-        gotoxy(cy + 1, cx + 1);  // +1 because terminal coordinates start at 1,1
+        gotoxy(*cy + 1, *cx + 1);  // +1 because terminal coordinates start at 1,1
         
         // Read input
         ssize_t nread = read(STDIN_FILENO, &c, 1);
@@ -231,16 +235,16 @@ int main(int argc, char *argv[]) {
             if (seq[0] == '[') {
                 switch (seq[1]) {
                     case 'A':  // Up arrow
-                        cy--;
+                        (*cy)--;
                         break;
                     case 'B':  // Down arrow
-                        cy++;
+                        (*cy)++;
                         break;
                     case 'C':  // Right arrow
-                        cx++;
+                        (*cx)++;
                         break;
                     case 'D':  // Left arrow
-                        cx--;
+                        (*cx)--;
                         break;
                 }
             }
@@ -256,51 +260,13 @@ int main(int argc, char *argv[]) {
             } else {
                 running = 0;
             }
-        } else if (c == '\r') {  // Enter key
-            int index = get_index_from_cursor(str, cy, cx);
-            size_t len = strlen(str);
-            char *temp = realloc(str, len + 2);  // +1 for \n, +1 for null terminator
-            if (temp) {
-                str = temp;
-                // Shift characters after cursor to make room for \n
-                memmove(&str[index + 1], &str[index], len - index + 1);
-                str[index] = '\n';
-                // Move cursor to start of new line
-                cy++;
-                cx = 0;
-            }
-        } else if (c == 127) {  // Backspace
-            int index = get_index_from_cursor(str, cy, cx);
-            // Move cursor before editing str
-            if (cx > 0) {
-                cx--;
-            } else if (cy > 0) {
-                cy--;
-                cx = get_line_length(str, cy);
-            }
-            size_t len = strlen(str);
-            if (index > 0) {
-                // Shift characters left to overwrite the character before cursor
-                memmove(&str[index - 1], &str[index], len - index + 1);
-                // Shrink memory since we removed a character
-                char *temp = realloc(str, len);  // len is now the new length after memmove
-                if (temp) {
-                    str = temp;
-                }
-            }
+        } else if (c == 127) { // Delete
+            alterCharBuffer("\b");
+        } else if (c == 8) { // Backspace
+            alterCharBuffer("\b");
         } else {
-            if (confirm_exit > 0) confirm_exit = 0;
-            if (file_saved) file_saved = 0;
-            int index = get_index_from_cursor(str, cy, cx);
-            size_t len = strlen(str);
-            char *temp = realloc(str, len + 2);  // +1 for new char, +1 for null terminator
-            if (temp) {
-                str = temp;
-                // Shift characters after cursor to make room for new character
-                memmove(&str[index + 1], &str[index], len - index + 1);
-                str[index] = c;
-                cx++;  // Move cursor right after insertion
-            }
+            typedChar = (char)c;
+            alterCharBuffer(&typedChar);
         }
     }
     clear_screen();

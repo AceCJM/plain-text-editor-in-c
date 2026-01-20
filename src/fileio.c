@@ -68,7 +68,7 @@ int save_file(char* filePath, char* p_fileData) {
         return -1;
     }
     strcpy(new_str, str);
-    new_str[len] = *"\0";
+    new_str[len] = *"\n";
 
     // Write bytes to file
     size_t bytes_written = fwrite(new_str, sizeof(char), len+1, p_file); // get number of bytes written to the file

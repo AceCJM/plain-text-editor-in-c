@@ -2,7 +2,7 @@ TARGET = main.c
 OUTPUT = editor
 SRC = ./src/
 BUILD = ./build/
-HEADERS = $(SRC)fileio.c $(SRC)editor.c
+HEADERS = $(SRC)fileio.c
 CC = gcc 
 
 

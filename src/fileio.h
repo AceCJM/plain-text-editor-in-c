@@ -1,4 +1,4 @@
 #include <stdio.h>
 
-char* loadFile(const char* filePath);
-int saveFile(const char* filePath, char* b_file);
+char* load_file(char* filePath);
+int save_file(char* filePath, char* b_file);

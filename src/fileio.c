@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-char* loadFile(const char* filePath) {
+char* load_file(char* filePath) {
     FILE* p_file; // File Pointer
     p_file = fopen(filePath, "rb"); // Open file in read only binary mode
 
@@ -50,7 +50,7 @@ char* loadFile(const char* filePath) {
     return b_file; // return the buffer
 }
 
-int saveFile(const char* filePath, char* p_fileData) {
+int save_file(char* filePath, char* p_fileData) {
     FILE* p_file; // File Pointer
     p_file = fopen(filePath, "wb"); // Open file in write binary mode
     const char* str = p_fileData;

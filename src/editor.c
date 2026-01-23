@@ -133,6 +133,17 @@ void alterCharBuffer(char newData[]) {
         }
         constrainCursor();
         return;
+    } else if (newData[0] == 9) { // Handle tab character change 
+        char* temp = realloc(str, len + 4 + 5); // grow for tab space (4 spaces) + null
+        if (temp) {
+            str = temp;
+            char tempData[] = "    ";
+            memmove(&str[cursorIndex + 4], &str[cursorIndex], len - cursorIndex + 1);
+            memcpy(&str[cursorIndex], tempData, 4);
+            (*cx) += 4;
+        }
+        constrainCursor();
+        return;
     } else if (newDataLen > 0) {
         char* temp = realloc(str, len + newDataLen + 1); // grow for new data + null
         if (temp) {

@@ -260,13 +260,14 @@ int main(int argc, char *argv[]) {
             } else {
                 running = 0;
             }
-        } else if (c == 127) { // Delete
-            alterCharBuffer("\b");
+        } else if (c == 127) { // Backspace?
+            char del[2] = {8, '\0'};
+            alterCharBuffer(del);
         } else if (c == 8) { // Backspace
             alterCharBuffer("\b");
         } else {
-            typedChar = (char)c;
-            alterCharBuffer(&typedChar);
+            char buf[2] = {c, '\0'};
+            alterCharBuffer(buf);
         }
     }
     clear_screen();

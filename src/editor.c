@@ -103,6 +103,15 @@ void alterCharBuffer(char newData[]) {
                 (*cy)--;
                 *cx = getLineLength();
             }
+            // Check if deleted character is a tab (4 spaces)
+            if (cursorIndex >= 4 && str[cursorIndex - 1] == ' ' && str[cursorIndex - 2] == ' ' && str[cursorIndex - 3] == ' ' && str[cursorIndex - 4] == ' ') {
+                (*cx) -= 3; // Move cursor left by additional 3 spaces for tab
+                if (*cx < 0) {
+                    (*cy)--;
+                    *cx = getLineLength();
+                }
+                cursorIndex -= 3; // Move back index by 4 for tab
+            }
             char* temp = realloc(str, len); // shrink by 1
             if (temp) {
                 str = temp;

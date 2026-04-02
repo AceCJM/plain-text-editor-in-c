@@ -11,29 +11,35 @@
 
 // Macros
 #define gotoxy(l, c) printf("\033[%d;%dH", (l), (c)) // move terminal cursor
-#define clear_screen() printf("\033[2J\033[H")  // clear screen
+#define clear_screen() printf("\033[2J\033[H")       // clear screen
 
-char str_val;
-char *str = &str_val;
+// File Path var
+char *file_path;
+
+char *str = NULL;
 
 // Forward declarations
-void get_terminal_size(int* rows, int* cols);
+void get_terminal_size(int *rows, int *cols);
 
 extern int *cx;
 extern int *cy;
 
 // Editor message flags
-int confirm_exit = 0;
-int file_saved = 0; 
+int confirm_exit_val = 0;
+int file_saved_val = 0;
+int *confirm_exit = &confirm_exit_val;
+int *file_saved = &file_saved_val;
 
 struct termios original_termios;
 
-void disable_raw_mode() {
+void disable_raw_mode()
+{
     // Restore the original terminal attributes
     tcsetattr(STDIN_FILENO, TCSANOW, &original_termios);
 }
 
-void enable_raw_mode() {
+void enable_raw_mode()
+{
     // Get the current terminal attributes
     tcgetattr(STDIN_FILENO, &original_termios);
     // Ensure disableRawMode is called on exit
@@ -49,35 +55,46 @@ void enable_raw_mode() {
     tcsetattr(STDIN_FILENO, TCSANOW, &raw);
 }
 
-void print_line_numbers(int numLines) {
+void print_line_numbers(int numLines)
+{
     int i = 0;
-    while (i < numLines) {
+    while (i < numLines)
+    {
         printf("%c\n", i);
         i++;
     }
 }
 
 // Function to count lines in text
-int count_lines(const char* text) {
-    if (!text || !*text) return 1;
+int count_lines(const char *text)
+{
+    if (!text || !*text)
+        return 1;
     int lines = 1;
-    for (const char* p = text; *p; p++) {
-        if (*p == '\n') lines++;
+    for (const char *p = text; *p; p++)
+    {
+        if (*p == '\n')
+            lines++;
     }
     return lines;
 }
 
 // Function to get line length at specific row
-int get_line_length(const char* text, int row) {
-    if (!text) return 0;
-    
+int get_line_length(const char *text, int row)
+{
+    if (!text)
+        return 0;
+
     int current_row = 0;
     int line_start = 0;
     int i = 0;
-    
-    while (text[i] && current_row <= row) {
-        if (text[i] == '\n' || text[i] == '\0') {
-            if (current_row == row) {
+
+    while (text[i] && current_row <= row)
+    {
+        if (text[i] == '\n' || text[i] == '\0')
+        {
+            if (current_row == row)
+            {
                 return i - line_start;
             }
             current_row++;
@@ -85,44 +102,58 @@ int get_line_length(const char* text, int row) {
         }
         i++;
     }
-    
+
     // If we reach end and it's the target row
-    if (current_row == row) {
+    if (current_row == row)
+    {
         return i - line_start;
     }
-    
+
     return 0;
 }
 
 // Function to constrain cursor to text bounds
-void constrain_cursor(const char* text) {
+void constrain_cursor(const char *text)
+{
     int total_lines = count_lines(text);
-    
+
     // Constrain row
-    if (*cy >= total_lines) *cy = total_lines - 1;
-    if (*cy < 0) *cy = 0;
-    
+    if (*cy >= total_lines)
+        *cy = total_lines - 1;
+    if (*cy < 0)
+        *cy = 0;
+
     // Constrain column
     int line_len = get_line_length(text, *cy);
-    if (*cx >= line_len) *cx = line_len > 0 ? line_len : 0;
-    if (*cx < 0) *cx = 0;
+    if (*cx >= line_len)
+        *cx = line_len > 0 ? line_len : 0;
+    if (*cx < 0)
+        *cx = 0;
 }
 
 // Function to print text with proper line endings for terminal display
-void print_text(const char* text) {
-    if (!text) return;
-    for (const char* p = text; *p; p++) {
-        if (*p == '\n') {
-            printf("\r\n");  // Use \r\n for terminal display
-        } else {
+void print_text(const char *text)
+{
+    if (!text)
+        return;
+    for (const char *p = text; *p; p++)
+    {
+        if (*p == '\n')
+        {
+            printf("\r\n"); // Use \r\n for terminal display
+        }
+        else
+        {
             putchar(*p);
         }
     }
 }
 
 // Function to print text from editor at the bottom of screen
-void print_editor_message(const char* text) {
-    if (!text) return;
+void print_editor_message(const char *text)
+{
+    if (!text)
+        return;
     int rows, cols;
     get_terminal_size(&rows, &cols);
 
@@ -136,12 +167,16 @@ void print_editor_message(const char* text) {
 }
 
 // Function to get index in text from cursor position
-int get_index_from_cursor(const char* text, int row, int col) {
-    if (!text) return 0;
+int get_index_from_cursor(const char *text, int row, int col)
+{
+    if (!text)
+        return 0;
     int current_row = 0;
     int index = 0;
-    while (text[index] && current_row < row) {
-        if (text[index] == '\n') {
+    while (text[index] && current_row < row)
+    {
+        if (text[index] == '\n')
+        {
             current_row++;
         }
         index++;
@@ -151,9 +186,11 @@ int get_index_from_cursor(const char* text, int row, int col) {
 }
 
 // Function to get terminal size
-void get_terminal_size(int* rows, int* cols) {
+void get_terminal_size(int *rows, int *cols)
+{
     struct winsize ws;
-    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1) {
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1)
+    {
         // Fallback values if ioctl fails
         *rows = 24;
         *cols = 80;
@@ -162,115 +199,84 @@ void get_terminal_size(int* rows, int* cols) {
     *rows = ws.ws_row;
     *cols = ws.ws_col;
     // Ensure we have valid values
-    if (*rows <= 0) *rows = 24;
-    if (*cols <= 0) *cols = 80;
+    if (*rows <= 0)
+        *rows = 24;
+    if (*cols <= 0)
+        *cols = 80;
 }
 
 int running = 1;
 
-int main(int argc, char *argv[]) {
-    if (argc < 2) {
+int main(int argc, char *argv[])
+{
+    if (argc < 2)
+    {
         printf("Usage: %s <filename>\n", argv[0]);
         return 1;
     }
+    file_path = argv[1];
     // turn off line buffering
     setvbuf(stdin, NULL, _IONBF, 0);
     setvbuf(stdout, NULL, _IONBF, 0);
-    
 
     // Declarations for loading the text file
-    char file_path[strlen(argv[1]) + 1];
-    strcpy(file_path, argv[1]);
     long file_size;
     char *b_text_file_data = load_file(file_path);
     file_size = strlen(b_text_file_data);
-    if (b_text_file_data) {
+    if (b_text_file_data)
+    {
         printf("File size %ld bytes\n", file_size);
         printf("File contents:\n%.*s\n", (int)file_size, b_text_file_data);
     }
     // Initialize str with loaded data
-    if (b_text_file_data) {
+    if (b_text_file_data)
+    {
         str = malloc(file_size + 1);
-        if (str) {
+        if (str)
+        {
             memcpy(str, b_text_file_data, file_size);
             str[file_size] = '\0';
         }
         free(b_text_file_data);
-    } else {
+    }
+    else
+    {
         str = malloc(1);
         str[0] = '\0';
     }
 
     char c;
-    char seq[3];  // for escape sequences
+    char seq[3]; // for escape sequences
     char typedChar;
-    
+
     enable_raw_mode();
-    
+
     // Main loop for editor
     while (running)
-    {   
+    {
         clear_screen();
         int num_lines = count_lines(str);
-        gotoxy(0,0);
+        gotoxy(0, 0);
         // print_line_numbers(num_lines);
         print_text(str);
-        printf("\r\n");  // Ensure we end with proper line ending
+        printf("\r\n"); // Ensure we end with proper line ending
         // Print editor message
-        if (confirm_exit > 0) print_editor_message("Are you sure you want to exit?\n\rFile will not be saved\n");
-        if (file_saved == 1) print_editor_message("File Saved");
-        
+        if (*confirm_exit > 0)
+            print_editor_message("Are you sure you want to exit?\n\rFile will not be saved\n");
+        if (*file_saved == 1)
+            print_editor_message("File Saved");
+
         // Position cursor at text area (after line numbers)
         constrain_cursor(str);
-        gotoxy(*cy + 1, *cx + 1);  // +1 because terminal coordinates start at 1,1
-        
+        gotoxy(*cy + 1, *cx + 1); // +1 because terminal coordinates start at 1,1
+
         // Read input
         ssize_t nread = read(STDIN_FILENO, &c, 1);
-        if (nread == -1) continue;
-        
-        if (c == '\x1b') {  // Escape sequence start
-            if (read(STDIN_FILENO, &seq[0], 1) != 1) continue;
-            if (read(STDIN_FILENO, &seq[1], 1) != 1) continue;
-            
-            if (seq[0] == '[') {
-                switch (seq[1]) {
-                    case 'A':  // Up arrow
-                        (*cy)--;
-                        break;
-                    case 'B':  // Down arrow
-                        (*cy)++;
-                        break;
-                    case 'C':  // Right arrow
-                        (*cx)++;
-                        break;
-                    case 'D':  // Left arrow
-                        (*cx)--;
-                        break;
-                }
-            }
-        } else if (c == 19) { // Ctrl+S Save 
-            save_file(file_path, str);
-            file_saved = 1;
-        } else if (c == 24) {  // Ctrl+X Exit
-            if (file_saved == 1) {
-                running = 0;
-            }
-            else if (confirm_exit < 1) {
-                confirm_exit++;
-            } else {
-                running = 0;
-            }
-        } else if (c == 127) { // Backspace?
-            char del[2] = {8, '\0'};
-            alterCharBuffer(del);
-        } else if (c == 8) { // Backspace
-            alterCharBuffer("\b");
-        } else {
-            char buf[2] = {c, '\0'};
-            alterCharBuffer(buf);
-        }
+        if (nread == -1)
+            continue;
+        handleKeyPress(c, seq);
     }
     clear_screen();
-    printf("\rProgram Exited\0");
+    printf("\rProgram Exited\n");
     return EXIT_SUCCESS;
 }

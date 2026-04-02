@@ -14,4 +14,4 @@ clean:
 
 dev:
 	rm -f $(BUILD)$(TARGET)
-	$(CC) $(SRC)$(TARGET) $(HEADERS) -o $(BUILD)$(OUTPUT)
+	$(CC) -g $(SRC)$(TARGET) $(HEADERS) -o $(BUILD)$(OUTPUT)
